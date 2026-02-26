@@ -1,0 +1,241 @@
+<!-- INVENTARIO FISICO -->
+  <div class="row justify-content-center">
+    <div class="col-12 col-md-8 col-lg-6">
+
+      <div class="card shadow-sm">
+        <div class="card-body">
+
+          <h5 class="text-primary mb-3">
+            Inventario Físico
+          </h5>
+
+          
+          <!-- QR -->
+          <div class="mb-3">
+            <label class="form-label small">QR</label>
+            <input type="text" id="qr"
+                   class="form-control form-control-sm"
+                   autofocus>
+          </div>
+
+          <!-- zona -->
+          <div class="mb-3">
+            <label class="form-label small">zona</label>
+            <select id="zona"
+              class="form-select form-select-sm">
+              <option value="NORTE">NORTE</option>
+              <option value="SUR">SUR</option>
+              <option value="CENTRO">CENTRO</option>
+            </select>
+          </div>
+
+          <!-- BOTÓN -->
+          <div class="d-grid mb-3">
+            <button class="btn btn-primary btn-sm" onclick="guardar()">
+              Guardar
+            </button>
+          </div>
+
+          <hr>
+
+          <!-- AVANCE -->
+          <label class="form-label small fw-bold">
+            Avance de Remesa
+          </label>
+
+          <div class="progress">
+            <div id="barra"
+                 class="progress-bar bg-primary"
+                 role="progressbar"
+                 style="width:0%">
+              0%
+            </div>
+          </div>
+
+          <div id="detalle" class="small text-muted mt-2"></div>
+          <div id="mensaje" class="mt-2"></div>
+        <br>
+      <div class="mb-3">
+      <label class="form-label"><strong>Subir archivo CSV (32 dígitos numéricos)</strong></label>
+      <input type="file" id="archivoCSV" accept=".csv" class="form-control">
+      <!-- zona -->
+          <div class="mb-3">
+            <label class="form-label small">zona</label>
+            <select id="Ubicacion"
+              class="form-select form-select-sm">
+              <option value="NORTE">NORTE</option>
+              <option value="SUR">SUR</option>
+              <option value="CENTRO">CENTRO</option>
+            </select>
+          </div>
+      <button class="btn btn-primary mt-2" onclick="subirCSV()">Procesar CSV</button>
+      </div>
+
+      <div id="resultadoCarga" class="mt-3 text-success fw-bold"></div>
+
+      <small class="text-muted d-block mt-2">
+         Nota: El nombre del archivo debe ser <strong>inventario</strong> y la columna A debe de ir la lectura QR.
+        </small>
+
+        </div>
+
+
+
+        </div>
+      </div>
+
+  
+  </div>
+
+  <script>
+
+ /*************************************************
+ * GUARDAR
+ *************************************************/
+
+function guardar() {
+
+  initAudio();
+
+  const qr = document.getElementById("qr").value.trim();
+  const zona = document.getElementById("zona").value;
+
+  if (!qr) {
+    mostrarMensaje("Debe escanear un QR", "danger");
+    playError();
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(respuesta)
+    .guardarQR(qr, zona); 
+}
+
+/*************************************************
+ * RESPUESTA
+ *************************************************/
+
+function respuesta(r) {
+
+  if (r.error) {
+    mostrarMensaje(r.error, "danger");
+    playError();
+    return;
+  }
+
+  mostrarMensaje("Registro guardado correctamente", "success");
+  playSuccess();
+
+  const barra = document.getElementById("barra");
+  barra.style.width = r.porcentaje + "%";
+  barra.innerText = r.porcentaje + "%";
+
+  if (r.porcentaje == 100) {
+    barra.classList.remove("bg-primary");
+    barra.classList.add("bg-success");
+  }
+
+  document.getElementById("detalle").innerHTML =
+    `
+    <b>Escaneados:</b> ${r.escaneados} / ${r.total}<br>
+    <b>Unidades leídas:</b> ${r.unidadesEscaneadas.join(", ")}<br>
+    <b>Faltan:</b> ${r.faltantes.length > 0 ? r.faltantes.join(", ") : "Ninguna"}
+    `;
+
+  document.getElementById("qr").value = "";
+  document.getElementById("qr").focus();
+}
+
+
+
+/*************************************************
+ * MENSAJE
+ *************************************************/
+
+function mostrarMensaje(texto, tipo) {
+  const div = document.getElementById("mensaje");
+  div.innerHTML =
+    `<div class="alert alert-${tipo} py-2 small">${texto}</div>`;
+  setTimeout(() => div.innerHTML = "", 3000);
+}
+
+
+/*************************************************
+ * AUDIO
+ *************************************************/
+
+let audioCtx;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") {
+    audioCtx.resume();
+  }
+}
+
+function playSuccess() {
+  initAudio();
+
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(900, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + 0.12);
+}
+
+function playError() {
+  initAudio();
+
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.type = "square";
+  oscillator.frequency.setValueAtTime(250, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + 0.25);
+}
+
+/*************************************************
+ * CSV
+ *************************************************/
+
+function subirCSV() {
+  const archivo = document.getElementById("archivoCSV").files[0];
+  const ubicacion = document.getElementById("Ubicacion").value;
+
+  if (!archivo) {
+    alert("Seleccione un archivo CSV");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    const contenido = e.target.result;
+
+    google.script.run
+      .withSuccessHandler(function(res) {
+        document.getElementById("resultadoCarga").innerHTML =
+          `Insertados: ${res.insertados} | Duplicados: ${res.duplicados}`;
+      })
+      .procesarCSV(contenido, ubicacion);
+  };
+
+  reader.readAsText(archivo);
+}  
+
+  </script>  

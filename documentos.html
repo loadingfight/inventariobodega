@@ -1,0 +1,238 @@
+<div class="container mt-3">
+  <div class="container-box">
+
+    <h5 class="mb-4">Inventario Documentos</h5>
+
+    <!-- ============================= -->
+    <!-- LECTURA ÚNICA -->
+    <!-- ============================= -->
+
+    <div class="row g-3">
+
+      <!-- Remesa -->
+      <div class="col-md-4">
+        <label class="form-label">Remesa (12 dígitos)</label>
+        <input type="text"
+               id="remesa"
+               class="form-control"
+               maxlength="12">
+      </div>
+
+      <!-- Zona -->
+      <div class="col-md-3">
+        <label class="form-label">Zona</label>
+        <select id="zona" class="form-select">
+          <option value="GRILLA">GRILLA</option>
+          <option value="MALLA">MALLA</option>
+        </select>
+      </div>
+
+      <!-- Botón -->
+      <div class="col-md-2 d-grid">
+        <label class="form-label invisible">.</label>
+        <button class="btn btn-success"
+                id="btnGuardar">
+          Registrar
+        </button>
+      </div>
+
+    </div>
+
+    <div id="mensaje" class="mt-3"></div>
+
+    <hr>
+
+    <!-- ============================= -->
+    <!-- SUBIR CSV -->
+    <!-- ============================= -->
+
+    <h6>Subir archivo CSV</h6>
+
+    <div class="row g-3">
+
+      <div class="col-md-4">
+        <input type="file"
+               id="archivoCSV"
+               accept=".csv"
+               class="form-control">
+      </div>
+
+      <div class="col-md-3">
+        <select id="zonaCSV"
+                class="form-select">
+          <option value="GRILLA">GRILLA</option>
+          <option value="MALLA">MALLA</option>
+        </select>
+      </div>
+
+      <div class="col-md-2 d-grid">
+        <button class="btn btn-primary"
+                id="btnCSV">
+          Procesar CSV
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function(){
+
+  document.getElementById("btnGuardar")
+    .addEventListener("click", guardarDocumento);
+
+  document.getElementById("btnCSV")
+    .addEventListener("click", subirCSV);
+
+  document.getElementById("remesa")
+    .addEventListener("keypress", function(e){
+      if(e.key === "Enter"){
+        guardarDocumento();
+      }
+    });
+
+});
+
+
+/*************************************************
+ * REGISTRO INDIVIDUAL
+ *************************************************/
+function guardarDocumento(){
+
+  const inputRemesa = document.getElementById("remesa");
+  const selectZona = document.getElementById("zona");
+
+  const remesa = inputRemesa.value.trim();
+  const zona = selectZona.value;
+
+  if(remesa.length !== 12){
+    mostrarMensaje("La remesa debe tener 12 caracteres","danger");
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(res){
+
+      if(!res){
+        mostrarMensaje("Error inesperado","danger");
+        return;
+      }
+
+      if(res.error){
+        mostrarMensaje(res.error,"danger");
+        return;
+      }
+
+      mostrarMensaje("Registro guardado correctamente ✔","success");
+
+      inputRemesa.value = "";
+      inputRemesa.focus();
+
+    })
+    .withFailureHandler(function(err){
+      mostrarMensaje("Error servidor: " + err.message,"danger");
+    })
+    .guardarDocumento(remesa, zona);
+}
+
+
+/*************************************************
+ * CARGA MASIVA CSV
+ *************************************************/
+function subirCSV(){
+
+  const archivoInput = document.getElementById("archivoCSV");
+  const zonaSelect = document.getElementById("zonaCSV");
+
+  const archivo = archivoInput.files.length > 0
+                  ? archivoInput.files[0]
+                  : null;
+
+  const zona = zonaSelect.value;
+
+  if(!archivo){
+    mostrarMensaje("Seleccione un archivo CSV","danger");
+    return;
+  }
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+
+    google.script.run
+      .withSuccessHandler(function(res){
+
+        if(!res){
+          mostrarMensaje("Error inesperado","danger");
+          return;
+        }
+
+        mostrarMensaje(
+          "Insertados: " + res.insertados +
+          " | Duplicados: " + res.duplicados,
+          "success"
+        );
+
+      })
+      .withFailureHandler(function(err){
+        mostrarMensaje("Error servidor: " + err.message,"danger");
+      })
+      .procesarCSVDocumentos(
+        e.target.result,
+        zona
+      );
+  };
+
+  reader.readAsText(archivo);
+}
+
+
+/*************************************************
+ * MENSAJES
+ *************************************************/
+function mostrarMensaje(texto, tipo){
+
+  const msg = document.getElementById("mensaje");
+
+  msg.className = "mt-3 alert alert-" + tipo;
+  msg.innerHTML = texto;
+
+  setTimeout(()=>{
+    msg.innerHTML = "";
+    msg.className = "";
+  },3000);
+}
+
+</script>
+
+
+<style>
+body {
+  background-color: #f4f6f9;
+  padding-top: 15px;
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 0.85rem;
+}
+
+.container-box {
+  max-width: 1000px;
+  background: white;
+  padding: 25px;
+  border-radius: 10px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+h5 {
+  color: #0d6efd;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 8px;
+}
+
+.form-control, .form-select {
+  font-size: 0.85rem;
+  padding: 6px 10px;
+}
+</style>
