@@ -43,6 +43,12 @@
             Avance de Remesa
           </label>
 
+          <div id="mensaje" style="
+            margin-top:10px;
+            font-size:0.85rem;
+            font-weight:500;
+          "></div>
+
           <div class="progress">
             <div id="barra"
                  class="progress-bar bg-primary"
@@ -51,6 +57,8 @@
               0%
             </div>
           </div>
+
+          <div id="detalle" class="mt-3 small"></div>
 
           <div class="mb-3">
             <label class="form-label">
@@ -150,12 +158,19 @@
    * MENSAJE
    *************************************************/
 
-  function mostrarMensaje(texto, tipo) {
-    const div = document.getElementById("mensaje");
-    div.innerHTML =
-      `<div class="alert alert-${tipo} py-2 small">${texto}</div>`;
-    setTimeout(() => div.innerHTML = "", 3000);
-  }
+  function mostrarMensaje(texto, tipo = "info") {
+
+  const contenedor = document.getElementById("mensaje");
+  if (!contenedor) return;
+
+  contenedor.className = "alert alert-" + tipo;
+  contenedor.innerHTML = texto;
+  contenedor.style.display = "block";
+
+  setTimeout(() => {
+    contenedor.style.display = "none";
+  }, 4000);
+}
 
 
   /*************************************************
