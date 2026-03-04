@@ -52,29 +52,27 @@
             </div>
           </div>
 
-          <div id="detalle" class="small text-muted mt-2"></div>
-          <div id="mensaje" class="mt-2"></div>
-        <br>
-      <div class="mb-3">
-      <label class="form-label"><strong>Subir archivo CSV (32 dígitos numéricos)</strong></label>
-      <input type="file" id="archivoCSV" accept=".csv" class="form-control">
-      <!-- zona -->
           <div class="mb-3">
-            <label class="form-label small">zona</label>
-            <select id="Ubicacion"
-              class="form-select form-select-sm">
-              <option value="NORTE">NORTE</option>
-              <option value="SUR">SUR</option>
-              <option value="CENTRO">CENTRO</option>
-            </select>
-          </div>
-      <button class="btn btn-primary mt-2" onclick="subirCSV()">Procesar CSV</button>
-      </div>
+            <label class="form-label">
+              <strong>Pegar QRs + Zona</strong>
+            </label>
 
-      <div id="resultadoCarga" class="mt-3 text-success fw-bold"></div>
+            <textarea id="bloqueQR"
+                      class="form-control"
+                      rows="8"
+                      placeholder="QR [Espacio o tap] ZONA"></textarea>
+
+            <button class="btn btn-primary btn-sm mt-2"
+                    id="btnProcesarBloque"
+                    onclick="procesarBloque()">
+              Procesar Registros
+            </button>
+          </div>
+
+          <div id="resultadoCarga" class="mt-3"></div>
 
       <small class="text-muted d-block mt-2">
-         Nota: El nombre del archivo debe ser <strong>inventario</strong> y la columna A debe de ir la lectura QR.
+         Nota: Primero el Numero <strong>QR</strong> separado por un espacio la ubicacion en bodega.
         </small>
 
         </div>
@@ -87,155 +85,198 @@
   
   </div>
 
-  <script>
+<script>
 
- /*************************************************
- * GUARDAR
+  /*************************************************
+   * GUARDAR
+   *************************************************/
+
+  function guardar() {
+
+    initAudio();
+
+    const qr = document.getElementById("qr").value.trim();
+    const zona = document.getElementById("zona").value;
+
+    if (!qr) {
+      mostrarMensaje("Debe escanear un QR", "danger");
+      playError();
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(respuesta)
+      .guardarQR(qr, zona); 
+  }
+
+  /*************************************************
+   * RESPUESTA
+   *************************************************/
+
+  function respuesta(r) {
+
+    if (r.error) {
+      mostrarMensaje(r.error, "danger");
+      playError();
+      return;
+    }
+
+    mostrarMensaje("Registro guardado correctamente", "success");
+    playSuccess();
+
+    const barra = document.getElementById("barra");
+    barra.style.width = r.porcentaje + "%";
+    barra.innerText = r.porcentaje + "%";
+
+    if (r.porcentaje == 100) {
+      barra.classList.remove("bg-primary");
+      barra.classList.add("bg-success");
+    }
+
+    document.getElementById("detalle").innerHTML =
+      `
+      <b>Escaneados:</b> ${r.escaneados} / ${r.total}<br>
+      <b>Unidades leídas:</b> ${r.unidadesEscaneadas.join(", ")}<br>
+      <b>Faltan:</b> ${r.faltantes.length > 0 ? r.faltantes.join(", ") : "Ninguna"}
+      `;
+
+    document.getElementById("qr").value = "";
+    document.getElementById("qr").focus();
+  }
+
+
+
+  /*************************************************
+   * MENSAJE
+   *************************************************/
+
+  function mostrarMensaje(texto, tipo) {
+    const div = document.getElementById("mensaje");
+    div.innerHTML =
+      `<div class="alert alert-${tipo} py-2 small">${texto}</div>`;
+    setTimeout(() => div.innerHTML = "", 3000);
+  }
+
+
+  /*************************************************
+   * AUDIO
+   *************************************************/
+
+  let audioCtx;
+
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume();
+    }
+  }
+
+  function playSuccess() {
+    initAudio();
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(900, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.12);
+  }
+
+  function playError() {
+    initAudio();
+
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = "square";
+    oscillator.frequency.setValueAtTime(250, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.25);
+  }
+/*************************************************
+ * CSV
  *************************************************/
 
-function guardar() {
+function procesarBloque() {
 
-  initAudio();
+  const texto = document.getElementById("bloqueQR").value.trim();
+  const btn = document.getElementById("btnProcesarBloque");
 
-  const qr = document.getElementById("qr").value.trim();
-  const zona = document.getElementById("zona").value;
-
-  if (!qr) {
-    mostrarMensaje("Debe escanear un QR", "danger");
-    playError();
+  if (!texto) {
+    mostrarResultado("Debe pegar información", "danger");
     return;
   }
+
+  btn.disabled = true;
+  btn.innerText = "Procesando...";
 
   google.script.run
-    .withSuccessHandler(respuesta)
-    .guardarQR(qr, zona); 
+    .withSuccessHandler(function(res){
+
+      mostrarResultado(
+        `✅ Insertados: ${res.insertados} | ⚠️ Duplicados: ${res.duplicados} | ❌ Inválidos: ${res.invalidos}`,
+        "success"
+      );
+
+      document.getElementById("bloqueQR").value = "";
+
+      btn.disabled = false;
+      btn.innerText = "Procesar Registros";
+
+    })
+    .withFailureHandler(function(err){
+
+      mostrarResultado("Error: " + err.message, "danger");
+
+      btn.disabled = false;
+      btn.innerText = "Procesar Registros";
+    })
+    .procesarBloqueTexto(texto);
 }
-
-/*************************************************
- * RESPUESTA
- *************************************************/
-
-function respuesta(r) {
-
-  if (r.error) {
-    mostrarMensaje(r.error, "danger");
-    playError();
-    return;
-  }
-
-  mostrarMensaje("Registro guardado correctamente", "success");
-  playSuccess();
-
-  const barra = document.getElementById("barra");
-  barra.style.width = r.porcentaje + "%";
-  barra.innerText = r.porcentaje + "%";
-
-  if (r.porcentaje == 100) {
-    barra.classList.remove("bg-primary");
-    barra.classList.add("bg-success");
-  }
-
-  document.getElementById("detalle").innerHTML =
-    `
-    <b>Escaneados:</b> ${r.escaneados} / ${r.total}<br>
-    <b>Unidades leídas:</b> ${r.unidadesEscaneadas.join(", ")}<br>
-    <b>Faltan:</b> ${r.faltantes.length > 0 ? r.faltantes.join(", ") : "Ninguna"}
-    `;
-
-  document.getElementById("qr").value = "";
-  document.getElementById("qr").focus();
-}
-
-
 
 /*************************************************
  * MENSAJE
  *************************************************/
 
-function mostrarMensaje(texto, tipo) {
-  const div = document.getElementById("mensaje");
-  div.innerHTML =
-    `<div class="alert alert-${tipo} py-2 small">${texto}</div>`;
-  setTimeout(() => div.innerHTML = "", 3000);
-}
+function mostrarResultado(mensaje, tipo) {
 
+  const resultado = document.getElementById("resultadoCarga");
 
-/*************************************************
- * AUDIO
- *************************************************/
-
-let audioCtx;
-
-function initAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
-  }
-}
-
-function playSuccess() {
-  initAudio();
-
-  const oscillator = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-
-  oscillator.type = "sine";
-  oscillator.frequency.setValueAtTime(900, audioCtx.currentTime);
-  gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-
-  oscillator.start();
-  oscillator.stop(audioCtx.currentTime + 0.12);
-}
-
-function playError() {
-  initAudio();
-
-  const oscillator = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-
-  oscillator.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-
-  oscillator.type = "square";
-  oscillator.frequency.setValueAtTime(250, audioCtx.currentTime);
-  gainNode.gain.setValueAtTime(0.4, audioCtx.currentTime);
-
-  oscillator.start();
-  oscillator.stop(audioCtx.currentTime + 0.25);
-}
-
-/*************************************************
- * CSV
- *************************************************/
-
-function subirCSV() {
-  const archivo = document.getElementById("archivoCSV").files[0];
-  const ubicacion = document.getElementById("Ubicacion").value;
-
-  if (!archivo) {
-    alert("Seleccione un archivo CSV");
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = function(e) {
-    const contenido = e.target.result;
-
-    google.script.run
-      .withSuccessHandler(function(res) {
-        document.getElementById("resultadoCarga").innerHTML =
-          `Insertados: ${res.insertados} | Duplicados: ${res.duplicados}`;
-      })
-      .procesarCSV(contenido, ubicacion);
+  const colores = {
+    success: "#198754",
+    danger: "#dc3545"
   };
 
-  reader.readAsText(archivo);
-}  
+  resultado.innerHTML = `
+    <div style="
+      padding:12px;
+      margin-top:15px;
+      border-radius:8px;
+      background:${colores[tipo]};
+      color:white;
+      font-weight:600;
+      text-align:center;
+    ">
+      ${mensaje}
+    </div>
+  `;
 
-  </script>  
+  setTimeout(() => {
+    resultado.innerHTML = "";
+  }, 5000);
+}
+
+</script>  

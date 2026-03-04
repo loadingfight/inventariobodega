@@ -1,81 +1,60 @@
-<div class="container mt-3">
-  <div class="container-box">
+ <style>
+    body{
+      background:#f4f6f9;
+      font-family: 'Segoe UI', sans-serif;
+    }
 
-    <h5 class="mb-4">Inventario Documentos</h5>
+    .card{
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 25px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
 
-    <!-- ============================= -->
-    <!-- LECTURA ÚNICA -->
-    <!-- ============================= -->
+    textarea{
+      resize:none;
+    }
+  </style>
+</head>
 
-    <div class="row g-3">
+<body>
 
-      <!-- Remesa -->
-      <div class="col-md-4">
-        <label class="form-label">Remesa (12 dígitos)</label>
-        <input type="text"
-               id="remesa"
-               class="form-control"
-               maxlength="12">
-      </div>
+<div class="card bg-white">
 
-      <!-- Zona -->
-      <div class="col-md-3">
-        <label class="form-label">Zona</label>
-        <select id="zona" class="form-select">
-          <option value="GRILLA">GRILLA</option>
-          <option value="MALLA">MALLA</option>
-        </select>
-      </div>
+  <h5 class="mb-3 text-primary">Inventario Documental</h5>
 
-      <!-- Botón -->
-      <div class="col-md-2 d-grid">
-        <label class="form-label invisible">.</label>
-        <button class="btn btn-success"
-                id="btnGuardar">
-          Registrar
-        </button>
-      </div>
-
-    </div>
-
-    <div id="mensaje" class="mt-3"></div>
-
-    <hr>
-
-    <!-- ============================= -->
-    <!-- SUBIR CSV -->
-    <!-- ============================= -->
-
-    <h6>Subir archivo CSV</h6>
-
-    <div class="row g-3">
-
-      <div class="col-md-4">
-        <input type="file"
-               id="archivoCSV"
-               accept=".csv"
-               class="form-control">
-      </div>
-
-      <div class="col-md-3">
-        <select id="zonaCSV"
-                class="form-select">
-          <option value="GRILLA">GRILLA</option>
-          <option value="MALLA">MALLA</option>
-        </select>
-      </div>
-
-      <div class="col-md-2 d-grid">
-        <button class="btn btn-primary"
-                id="btnCSV">
-          Procesar CSV
-        </button>
-      </div>
-
-    </div>
-
+  <div class="mb-3">
+    <label class="form-label">Zona</label>
+    <select id="zona" class="form-select">
+      <option value="Norte">Norte</option>
+      <option value="Centro">Centro</option>
+      <option value="Sur">Sur</option>
+    </select>
   </div>
+
+  <div class="mb-3">
+    <label class="form-label">Remesas (12 dígitos)</label>
+    <textarea 
+      id="remesa" 
+      class="form-control" 
+      rows="4"
+      placeholder="Escanee o escriba las remesas separadas por espacio o enter">
+    </textarea>
+    <small class="text-muted">Ctrl + Enter para guardar</small>
+  </div>
+
+  
+
+<button type="button" id="btnGuardar" class="btn btn-primary w-100">
+  Guardar Documentos
+</button>
+<br>
+
+<div id="resultadoCarga" class="mt-3"></div>
+
 </div>
+
 
 <script>
 
@@ -84,155 +63,80 @@ document.addEventListener("DOMContentLoaded", function(){
   document.getElementById("btnGuardar")
     .addEventListener("click", guardarDocumento);
 
-  document.getElementById("btnCSV")
-    .addEventListener("click", subirCSV);
-
   document.getElementById("remesa")
-    .addEventListener("keypress", function(e){
-      if(e.key === "Enter"){
+    .addEventListener("keydown", function(e){
+      if(e.key === "Enter" && e.ctrlKey){
+        e.preventDefault();
         guardarDocumento();
       }
-    });
+  });
 
 });
 
 
-/*************************************************
- * REGISTRO INDIVIDUAL
- *************************************************/
+/*********** REGISTRO MASIVO ***********/
 function guardarDocumento(){
 
-  const inputRemesa = document.getElementById("remesa");
-  const selectZona = document.getElementById("zona");
+  const texto = document.getElementById("remesa").value.trim();
+  const zona = document.getElementById("zona").value;
 
-  const remesa = inputRemesa.value.trim();
-  const zona = selectZona.value;
+  if(!texto){
+    mostrarMensaje("Debe ingresar al menos una remesa", "danger");
+    return;
+  }
 
-  if(remesa.length !== 12){
-    mostrarMensaje("La remesa debe tener 12 caracteres","danger");
+  const remesas = texto
+    .split(/\s+/)
+    .map(r => r.trim())
+    .filter(r => r.length === 12);
+
+  if(remesas.length === 0){
+    mostrarMensaje("No hay remesas válidas (12 dígitos)", "danger");
     return;
   }
 
   google.script.run
     .withSuccessHandler(function(res){
 
-      if(!res){
-        mostrarMensaje("Error inesperado","danger");
-        return;
-      }
+      console.log("Respuesta servidor:", res);
 
-      if(res.error){
-        mostrarMensaje(res.error,"danger");
-        return;
-      }
+      // Eliminar mensaje anterior si existe
+      const anterior = document.getElementById("mensajeResultado");
+      if(anterior) anterior.remove();
 
-      mostrarMensaje("Registro guardado correctamente ✔","success");
+      const btn = document.getElementById("btnGuardar");
 
-      inputRemesa.value = "";
-      inputRemesa.focus();
+      btn.insertAdjacentHTML("beforebegin", `
+        <div id="mensajeResultado" style="
+          padding:12px;
+          margin-top:15px;
+          border-radius:8px;
+          background:#198754;
+          color:white;
+          font-weight:600;
+          text-align:center;
+        ">
+          Insertados: ${res.insertados} | 
+          Duplicados: ${res.duplicados}
+        </div>
+      `);
+
+      setTimeout(()=>{
+        const msg = document.getElementById("mensajeResultado");
+        if(msg) msg.remove();
+      }, 5000);
+
+      document.getElementById("remesa").value = "";
 
     })
     .withFailureHandler(function(err){
-      mostrarMensaje("Error servidor: " + err.message,"danger");
+      mostrarMensaje("Error servidor: " + err.message, "danger");
     })
-    .guardarDocumento(remesa, zona);
+    .guardarDocumentosMasivo(remesas, zona);
 }
 
 
-/*************************************************
- * CARGA MASIVA CSV
- *************************************************/
-function subirCSV(){
-
-  const archivoInput = document.getElementById("archivoCSV");
-  const zonaSelect = document.getElementById("zonaCSV");
-
-  const archivo = archivoInput.files.length > 0
-                  ? archivoInput.files[0]
-                  : null;
-
-  const zona = zonaSelect.value;
-
-  if(!archivo){
-    mostrarMensaje("Seleccione un archivo CSV","danger");
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = function(e){
-
-    google.script.run
-      .withSuccessHandler(function(res){
-
-        if(!res){
-          mostrarMensaje("Error inesperado","danger");
-          return;
-        }
-
-        mostrarMensaje(
-          "Insertados: " + res.insertados +
-          " | Duplicados: " + res.duplicados,
-          "success"
-        );
-
-      })
-      .withFailureHandler(function(err){
-        mostrarMensaje("Error servidor: " + err.message,"danger");
-      })
-      .procesarCSVDocumentos(
-        e.target.result,
-        zona
-      );
-  };
-
-  reader.readAsText(archivo);
-}
-
-
-/*************************************************
- * MENSAJES
- *************************************************/
-function mostrarMensaje(texto, tipo){
-
-  const msg = document.getElementById("mensaje");
-
-  msg.className = "mt-3 alert alert-" + tipo;
-  msg.innerHTML = texto;
-
-  setTimeout(()=>{
-    msg.innerHTML = "";
-    msg.className = "";
-  },3000);
-}
 
 </script>
 
-
-<style>
-body {
-  background-color: #f4f6f9;
-  padding-top: 15px;
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 0.85rem;
-}
-
-.container-box {
-  max-width: 1000px;
-  background: white;
-  padding: 25px;
-  border-radius: 10px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-}
-
-h5 {
-  color: #0d6efd;
-  border-bottom: 2px solid #e9ecef;
-  padding-bottom: 8px;
-}
-
-.form-control, .form-select {
-  font-size: 0.85rem;
-  padding: 6px 10px;
-}
-</style>
+</body>

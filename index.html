@@ -33,30 +33,213 @@
       display: block;
     }
 
-    
+    .menu-superior{
+  
+      padding:12px;
+      display:flex;
+      gap:10px;
+      justify-content:center;
+      align-items:center;
+      gap:15px;
+      flex-wrap:wrap; 
+    }
+
+    .btn-tab{
+      background:#0d6efd;
+      color:white;
+      border:none;
+      padding:10px 18px;
+      font-size:14px;
+      font-weight:500;
+      border-radius:6px;
+      cursor:pointer;
+      transition:all 0.2s ease;
+      min-width:150px;
+    }
+
+
+    body{
+      font-family:'Segoe UI', sans-serif;
+      background:#f4f6f9;
+      margin:0;
+      padding:20px;
+    }
+
+    h2{
+      margin-bottom:20px;
+    }
+
+    /* FILTROS */
+    .filtros{
+      display:flex;
+      gap:20px;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      margin-bottom:25px;
+      background:white;
+      padding:15px;
+      border-radius:10px;
+      box-shadow:0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    .filtro-item{
+      display:flex;
+      flex-direction:column;
+      font-size:14px;
+    }
+
+    .filtro-item input,
+    .filtro-item select{
+      padding:6px 10px;
+      border-radius:6px;
+      border:1px solid #ccc;
+      min-width:150px;
+    }
+
+    .btn-actualizar{
+      background:#198754;
+      color:white;
+      border:none;
+      padding:8px 18px;
+      border-radius:6px;
+      cursor:pointer;
+      font-weight:500;
+      transition:0.2s;
+    }
+
+    .btn-actualizar:hover{
+      background:#157347;
+    }
+
+    /* GRID TARJETAS */
+    .dashboard-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+      gap:20px;
+    }
+
+    .card-metrica{
+      background:white;
+      padding:25px;
+      border-radius:12px;
+      box-shadow:0 4px 12px rgba(0,0,0,0.08);
+      text-align:center;
+      transition:0.3s;
+    }
+
+    .card-metrica:hover{
+      transform:translateY(-5px);
+    }
+
+    .card-metrica h4{
+      font-size:32px;
+      margin:0;
+      color:#0d6efd;
+    }
+
+    .card-metrica p{
+      margin-top:8px;
+      font-weight:500;
+      color:#555;
+    }
+
 
   </style>
+
 </head>
 
 <body>
+
+
 
 <div class="container mt-3">
 
   <!-- NAVEGACION -->
 
-<ul class="nav-menu">
-  <li><a class="nav-link active" onclick="showTab('dashboard', this)">📊 Dashboard</a></li>
-  <li><a class="nav-link" onclick="showTab('lectura', this)">📦 Lectura de Cajas</a></li>
-  <li><a class="nav-link" onclick="showTab('documentos', this)">📋 Documentos</a></li>
-  <li><a class="nav-link" onclick="showTab('inventario', this)">📊 Inventario</a></li>
-  <li><a class="nav-link" onclick="showTab('reportes', this)">📈 Reportes</a></li>
-</ul>
+<div class="menu-superior">
+
+  <button class="btn-tab active" onclick="showTab('dashboard', this)">
+    📊 Dashboard
+  </button>
+
+  <button class="btn-tab" onclick="showTab('lectura', this)">
+    📦 Lectura de Cajas
+  </button>
+
+  <button class="btn-tab" onclick="showTab('documentos', this)">
+    📋 Documentos
+  </button>
+
+  <button class="btn-tab" onclick="showTab('inventario', this)">
+    📊 Inventario
+  </button>
+
+  <button class="btn-tab" onclick="showTab('reportes', this)">
+    📈 Reportes
+  </button>
+
+</div>
 
 
 <!-- DASHBOARD -->
 <section id="dashboard" class="tab-content active">
   <h3>Dashboard</h3>
   <p>Resumen general del sistema.</p>
+
+ <!-- FILTROS -->
+  <div class="filtros">
+
+    <div class="filtro-item">
+      <label>Fecha Inicio</label>
+      <input type="date" id="fechaInicio">
+    </div>
+
+    <div class="filtro-item">
+      <label>Fecha Fin</label>
+      <input type="date" id="fechaFin">
+    </div>
+
+    <div class="filtro-item">
+      <label>Ubicación</label>
+      <select id="ubicacionFiltro">
+        <option value="">Todas</option>
+      </select>
+    </div>
+
+    <div class="filtro-item">
+      <button class="btn-actualizar" onclick="cargarDashboard()">
+        Actualizar
+      </button>
+    </div>
+
+  </div>
+
+  <!-- TARJETAS -->
+  <div class="dashboard-grid">
+
+    <div class="card-metrica">
+      <h4 id="totalRemesas">0</h4>
+      <p>Remesas Leídas</p>
+    </div>
+
+    <div class="card-metrica">
+      <h4 id="remesasCompletas">0</h4>
+      <p>Remesas Completas</p>
+    </div>
+
+    <div class="card-metrica">
+      <h4 id="remesasIncompletas">0</h4>
+      <p>Remesas Incompletas</p>
+    </div>
+
+    <div class="card-metrica">
+      <h4 id="totalCajas">0</h4>
+      <p>Cajas Escaneadas</p>
+    </div>
+
+  </div>
+
+
 </section>
 
 <!-- LECTURA DE CAJAS -->
@@ -113,6 +296,47 @@ window.onload = function() {
   const savedTab = localStorage.getItem("activeTab") || "dashboard";
   showTab(savedTab);
 };
+
+
+/*************************************************
+ * DASHBOARD
+ *************************************************/
+
+// Cargar ubicaciones automáticamente al abrir
+    document.addEventListener("DOMContentLoaded", function(){
+      cargarDashboard();
+    });
+
+    function cargarDashboard(){
+
+      const fechaInicio = document.getElementById("fechaInicio").value;
+      const fechaFin = document.getElementById("fechaFin").value;
+      const ubicacion = document.getElementById("ubicacionFiltro").value;
+
+      const btn = document.querySelector(".btn-actualizar");
+      btn.disabled = true;
+      btn.innerText = "Actualizando...";
+
+      google.script.run
+        .withSuccessHandler(function(res){
+
+          document.getElementById("totalRemesas").innerText = res.totalRemesas;
+          document.getElementById("remesasCompletas").innerText = res.completas;
+          document.getElementById("remesasIncompletas").innerText = res.incompletas;
+          document.getElementById("totalCajas").innerText = res.totalCajas;
+
+          btn.disabled = false;
+          btn.innerText = "🔄 Actualizar";
+        })
+        .withFailureHandler(function(){
+          alert("Error actualizando dashboard");
+          btn.disabled = false;
+          btn.innerText = "🔄 Actualizar";
+        })
+        .obtenerDashboardFiltrado(fechaInicio, fechaFin, ubicacion);
+    }
+
+  
 
 
 </script>

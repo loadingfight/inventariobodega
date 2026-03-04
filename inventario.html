@@ -1,13 +1,15 @@
 <div class="content-header">
-          <h2>Control de Inventario</h2>
+          
         </div>
         <div class="content-body">
+          
           <div class="card">
+            <h2>Control de Inventario</h2>
             <div class="card-header">Stock Actual</div>
             <div class="card-body">
               <div class="actions">
-                <button class="btn btn-primary" onclick="mostrarStock()">
-                  Actualizar Stock
+                <button class="btn btn-primary" onclick="actualizarInventario()">
+                  Actualizar Inventario
                 </button>
                 <button class="btn btn-success" onclick="exportarStock()">
                   Exportar CSV
@@ -15,6 +17,7 @@
                 <button class="btn btn-warning" onclick="mostrarAlertas()">
                   Solo Alertas
                 </button>
+                <br>
               </div>
               <div id="loading" class="loading">Cargando inventario...</div>
               <div class="table-container">
@@ -23,3 +26,156 @@
             </div>
           </div>
         </div>
+
+
+<script>
+
+function actualizarInventario() {
+  document.getElementById("loading").style.display = "block";
+
+  google.script.run
+    .withSuccessHandler(function(){
+      document.getElementById("loading").style.display = "none";
+      mostrarStock();
+    })
+    .actualizarInventarioGeneral();
+}
+
+/*************************************************
+ * OBTENER ALERTAS (< 30%)
+ *************************************************/
+
+function mostrarAlertas() {
+
+  document.getElementById("loading").style.display = "block";
+
+  google.script.run
+    .withSuccessHandler(function(datos){
+
+      document.getElementById("loading").style.display = "none";
+
+      if (!datos || datos.length === 0) {
+        document.getElementById("stockTable").innerHTML =
+          "<p>No hay alertas.</p>";
+        return;
+      }
+
+      generarTabla(datos);
+
+    })
+    .obtenerAlertasInventario();
+}
+
+/*************************************************
+ * OBTENER TABLA
+ *************************************************/
+
+function generarTabla(datos) {
+
+  let html = "<table class='table table-bordered table-alertas'>";
+  html += "<thead><tr>";
+
+  datos[0].forEach(col => {
+    html += "<th>" + col + "</th>";
+  });
+
+  html += "</tr></thead><tbody>";
+
+  for (let i = 1; i < datos.length; i++) {
+
+    const porcentaje = Number(datos[i][4]) || 0;
+
+    let filaClass = "";
+    if (porcentaje < 0.1) {
+      filaClass = "bad-critical";
+    } else if (porcentaje < 0.3) {
+      filaClass = "bad-low";
+    }
+
+    html += "<tr class='" + filaClass + "'>";
+
+    datos[i].forEach((celda, index) => {
+
+      if (index === 4) {
+        html += "<td class='percent-cell'>" + (celda * 100).toFixed(1) + "%</td>";
+      } else {
+        html += "<td>" + celda + "</td>";
+      }
+
+    });
+
+    html += "</tr>";
+  }
+
+  html += "</tbody></table>";
+
+  document.getElementById("stockTable").innerHTML = html;
+}
+
+/*************************************************
+ * MOSTRAR STOCK
+ *************************************************/
+
+function mostrarStock() {
+
+  document.getElementById("loading").style.display = "block";
+
+  google.script.run
+    .withSuccessHandler(function(datos){
+
+      document.getElementById("loading").style.display = "none";
+
+      if (!datos || datos.length === 0) {
+        document.getElementById("stockTable").innerHTML =
+          "<p>No hay datos disponibles.</p>";
+        return;
+      }
+
+      generarTabla(datos);
+
+    })
+    .obtenerInventarioCompleto();
+}
+
+
+</script>
+
+
+<style>
+
+.table-alertas {
+  font-size: 0.8rem;
+  border-collapse: collapse;
+}
+
+.table-alertas th {
+  background-color: #2c3e50;
+  color: white;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  padding: 6px;
+}
+
+.table-alertas td {
+  padding: 5px;
+  vertical-align: middle;
+}
+
+.table-alertas tbody tr:hover {
+  background-color: #f2f2f2;
+}
+
+.bad-low {
+  background-color: #ffebee;
+}
+
+.bad-critical {
+  background-color: #ffcdd2;
+  font-weight: bold;
+}
+
+.percent-cell {
+  font-weight: bold;
+}
+
+</style>
