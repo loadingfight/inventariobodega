@@ -1,6 +1,15 @@
 {
   "timeZone": "America/Bogota",
-  "dependencies": {},
+  "dependencies": {
+    "libraries": [
+      {
+        "userSymbol": "GETALDIA",
+        "version": "0",
+        "libraryId": "1nOiO5bLgzjpkIigm5EGeu5PcDpxVXUgIpOTy3jD8FVTSDbv5gCUFsjxC",
+        "developmentMode": true
+      }
+    ]
+  },
   "exceptionLogging": "STACKDRIVER",
   "runtimeVersion": "V8",
   "webapp": {

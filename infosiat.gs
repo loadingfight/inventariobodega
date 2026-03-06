@@ -1,3 +1,50 @@
+function seguimientoLogistica() {
+  // Aquí puedes poner cualquier número de remesa que necesites
+  const remesaPrueba = "220500672440"; 
+  const remesaOtra = "22269070450";
+  
+  // Llamada: IdentificadorDeBiblioteca.NombreDeFuncion(numero)
+  // Asumiendo que el identificador que pusiste al añadir la biblioteca es 'Aldia'
+  const resultado = GETALDIA.consultar(remesaPrueba);
+  const resultado2 = GETALDIA.consultar(remesaOtra);
+  
+  Logger.log("Resultado 1: " + JSON.stringify(resultado));
+  Logger.log("Resultado 2: " + JSON.stringify(resultado2));
+}
+
+
+
+function obtenerResumenRemesa() {
+  const nro = "220500672440";
+  const respuesta = GETALDIA.consultar(nro);
+  
+  // Verificamos que la respuesta tenga datos
+  if (respuesta && respuesta.rows > 0) {
+    const info = respuesta.data[0]; // Accedemos al primer registro
+    
+    const resumen = {
+      remesa: info.remesa,
+      cliente: info.cliente,
+      destino: info.destino,
+      estado: info.estado_remesa, // Ej: "CUMPLIDA"
+      entregada: info.entregada,    // Ej: "SI"
+      fechaEntrega: info.fecha_entrega,
+      ultimoEvento: info.historico_eventos.slice(-1)[0].nombre
+    };
+    
+    Logger.log("--- RESUMEN DE LA REMESA ---");
+    Logger.log("Estado: " + resumen.estado);
+    Logger.log("Último movimiento: " + resumen.ultimoEvento);
+    
+    return resumen;
+  } else {
+    Logger.log("No se encontró información para la remesa: " + nro);
+    return null;
+  }
+}
+
+
+
 /*************************************************
  * ACTUALIZAR INVENTARIO DESDE SIAT (OPTIMIZADO)
  
