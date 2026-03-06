@@ -1,6 +1,6 @@
 /*************************************************
  * ACTUALIZAR INVENTARIO DESDE SIAT (OPTIMIZADO)
- *************************************************/
+ 
 function actualizarInventarioDesdeSIAT() {
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -73,3 +73,4 @@ function actualizarInventarioDesdeSIAT() {
 
   Logger.log("Inventario sincronizado con SIAT correctamente");
 }
+*************************************************/
