@@ -92,3 +92,5 @@ function obtenerMapaDocumentos() {
   if (!hojaDoc || hojaDoc.getLastRow() < 2) return new Set();
   return new Set(hojaDoc.getRange(2, 1, hojaDoc.getLastRow() - 1, 1).getValues().flat().map(x => String(x).trim()));
 }
+
+

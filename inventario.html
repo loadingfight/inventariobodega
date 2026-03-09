@@ -44,10 +44,13 @@
     z-index: 2;
   }
 
-  /* Si quieres que la columna "Estado" específicamente tenga un color o estilo */
-  .tabla-inventario td:nth-child(11) {
-    font-weight: bold;
-    color: #2c3e50;
+   .tabla-inventario td:nth-child(9),.tabla-inventario td:nth-child(11), 
+  .tabla-inventario th:nth-child(9), .tabla-inventario th:nth-child(11) {
+    max-width: 150px; /* Limita el ancho a 150px (puedes ajustarlo) */
+    min-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tabla-inventario tr:nth-child(even) { background-color: #f9f9f9; }

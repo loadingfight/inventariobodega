@@ -57,4 +57,72 @@ function obtenerResumenRemesa() {
 
 
 
+/*************************************************
+ * completarDatosAPI
+*************************************************/
+
+function completarDatosAPI(){
+
+  const hoja = SpreadsheetApp
+    .getActive()
+    .getSheetByName("inventario");
+
+  const datos = hoja
+    .getRange(2,1,hoja.getLastRow()-1,15)
+    .getValues();
+
+  const LIMITE = 50;
+  let contador = 0;
+
+  datos.forEach((fila,i)=>{
+
+    const remesa = String(fila[0]).trim();
+    const cliente = fila[8]; // columna I
+
+    // si ya tiene datos no consulta
+    if(cliente) return;
+
+    if(contador >= LIMITE) return;
+
+    try{
+
+      const respuesta = GETALDIA.consultar(remesa);
+
+      if(respuesta && respuesta.rows > 0){
+
+        const info = respuesta.data[0];
+
+        const cliente = info.cliente;
+        const destino = info.destino;
+        const estado = info.estado_remesa;
+        const entregada = info.entregada;
+        const fecha = info.fecha_hora;
+        const anulada = info.anulada;
+        const ultimoEvento = info.historico_eventos.slice(-1)[0].nombre
+
+        hoja.getRange(i+2,9,1,7).setValues([[
+          cliente,
+          destino,
+          estado,
+          entregada,
+          fecha,
+          anulada,
+          ultimoEvento
+        ]]);
+
+      }
+
+      contador++;
+
+      Utilities.sleep(1500);
+
+    }catch(e){
+
+      Logger.log("Error remesa "+remesa);
+
+    }
+
+  });
+
+}
  
