@@ -21,7 +21,7 @@ function seguimientoLogistica() {
 *************************************************/
 
 function obtenerResumenRemesa() {
-  const nro = "222603197688";
+  const nro = "222603244307";
   const respuesta = GETALDIA.consultar(nro);
   
   // Verificamos que la respuesta tenga datos
