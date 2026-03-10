@@ -91,10 +91,13 @@ function generarAlertasInventario(){
  * OBTENER TODO EL INVENTARIO (15 COLUMNAS)
  *************************************************/
 function obtenerInventarioCompleto() {
-  const ss = SpreadsheetApp.getActive();
-  const hoja = ss.getSheetByName("inventario");
-  const valores = hoja.getRange(1, 1, hoja.getLastRow(), 15).getDisplayValues(); 
-  return valores;
+
+  const hoja = SpreadsheetApp
+    .getActive()
+    .getSheetByName("inventario");
+
+  return hoja.getDataRange().getDisplayValues();
+
 }
 
 /*************************************************
@@ -185,7 +188,7 @@ function obtenerMapaDocumentos() {
 
 
 /*************************************************
-   * Remesas a Entregadas
+  Remesas a Entregadas
 *************************************************/
 
   function moverRemesasEntregadas(){

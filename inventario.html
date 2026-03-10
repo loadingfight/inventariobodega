@@ -58,9 +58,25 @@
 
     .loading { display: none; color: #e67e22; font-weight: bold; margin: 10px 0; }
   
-  
+  .table-alertas{
+  font-size:0.75rem;
+}
+
+.table-alertas th{
+  font-size:0.70rem;
+  padding:4px;
+}
+
+.table-alertas td{
+  padding:4px;
+}
+
+.alerta-icons{
+  text-align:center;
+  font-size:18px;
+}
      
-  </style>
+</style>
 
 </head>
 <body>
@@ -74,7 +90,10 @@
       <button class="btn btn-success" onclick="exportarStock()">Exportar CSV</button>
     </div>
     <input type="text" id="buscar" placeholder="Buscar por remesa, cliente o ubicación..." onkeyup="filtrarTabla()" class="input-busqueda">
+    <p>  ✅ correcto 📦 → faltan unidades 📄 → falta documentos 📅 → muchos días </p> 
   </div>
+
+  
 
   <div id="loading" class="loading">Procesando datos, por favor espere...</div>
 
@@ -162,53 +181,54 @@ function generarTabla(datos){
     return;
   }
 
-  let html = "<div class='tabla-container'>";
-  html += "<table id='tablaInventario' class='table table-bordered table-alertas'>";
+  const headers = datos[0];
+  const colAlertas = headers.indexOf("Alertas");
 
-  /***************
-  HEADER
-  ***************/
-  html += "<thead><tr>";
+  let html = `
+  <div class="tabla-container">
+  <table id="tablaInventario" class="table table-sm table-bordered table-hover table-alertas">
+  <thead>
+  <tr>
+  <th>Alertas</th>`;
 
-  html += "<th>Alertas</th>";
-
-  datos[0].forEach(columna=>{
-    html += `<th>${columna}</th>`;
+  headers.forEach(col=>{
+    html += `<th>${col}</th>`;
   });
 
-  html += "</tr></thead>";
-
-  /***************
-  BODY
-  ***************/
-  html += "<tbody>";
+  html += "</tr></thead><tbody>";
 
   for(let i=1;i<datos.length;i++){
 
     const fila = datos[i];
+    const remesa = fila[0];
 
-    const alertaTexto = String(fila[15] || "").toLowerCase();
+    // leer columna P
+    const alertaTexto = String(fila[15] || "").toLowerCase().trim();
 
     let iconos = "";
+    let claseFila = "";
 
-    if(alertaTexto.includes("Faltan unidades")){
+    if(alertaTexto.includes("faltan unidades")){
       iconos += "📦 ";
+      claseFila = "fila-faltantes";
     }
 
-    if(alertaTexto.includes("Falta documentos")){
+    if(alertaTexto.includes("falta documentos")){
       iconos += "📄 ";
+      if(!claseFila) claseFila = "fila-documentos";
     }
 
-    if(alertaTexto.includes("Muchos dias")){
+    if(alertaTexto.includes("muchos dias")){
       iconos += "📅 ";
+      claseFila = "fila-dias";
     }
 
-    // si no tiene alertas
     if(iconos === ""){
       iconos = "✅";
+      claseFila = "fila-ok";
     }
 
-    html += "<tr>";
+    html += `<tr class="${claseFila}">`;
 
     html += `<td class="alerta-icons">${iconos}</td>`;
 
