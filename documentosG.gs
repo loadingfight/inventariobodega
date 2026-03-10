@@ -99,3 +99,9 @@ function obtenerInventarioCompleto() {
     .getRange(1,1,hoja.getLastRow(),7) // A → G
     .getValues();
 }
+
+
+
+
+
+  

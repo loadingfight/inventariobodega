@@ -20,7 +20,6 @@
 
   .tabla-inventario {
     border-collapse: collapse;
-    /* Este truco fuerza a las celdas a ajustarse al texto */
     width: 1%; 
     min-width: 100%; 
     font-family: 'Segoe UI', sans-serif;
@@ -28,8 +27,8 @@
 
   .tabla-inventario th, 
   .tabla-inventario td {
-    padding: 4px 8px; /* Espacio interno controlado */
-    font-size: 11px;
+    padding: 2px 4px; /* Espacio interno controlado */
+    font-size: 9px;
     border: 1px solid #eee;
     /* Evita que el texto salte de línea, manteniendo la columna estrecha */
     white-space: nowrap; 
@@ -58,7 +57,11 @@
     .tabla-inventario tr:hover { background: #f1f7ff; }
 
     .loading { display: none; color: #e67e22; font-weight: bold; margin: 10px 0; }
+  
+  
+     
   </style>
+
 </head>
 <body>
 
@@ -73,7 +76,7 @@
     <input type="text" id="buscar" placeholder="Buscar por remesa, cliente o ubicación..." onkeyup="filtrarTabla()" class="input-busqueda">
   </div>
 
-  <div id="loading" class="loading">⏳ Procesando datos, por favor espere...</div>
+  <div id="loading" class="loading">Procesando datos, por favor espere...</div>
 
   <div class="tabla-wrapper">
     <div id="stockTable"></div>
@@ -84,15 +87,25 @@
   // Al cargar la página, mostrar el stock automáticamente
   window.onload = mostrarStock;
 
-  function actualizarInventario(){
-    document.getElementById("loading").style.display="block";
-    google.script.run
-      .withSuccessHandler(function(){
-        document.getElementById("loading").style.display="none";
-        mostrarStock();
-      })
-      .actualizarInventarioGeneral();
-  }
+
+/*************************************************
+ * BOTONES
+ *************************************************/
+
+function actualizarInventario(){
+
+  document.getElementById("loading").style.display="block";
+
+  google.script.run
+    .withSuccessHandler(function(){
+
+      document.getElementById("loading").style.display="none";
+      mostrarStock();
+
+    })
+    .actualizarInventarioCompleto();
+
+}
 
   function mostrarAlertas(){
     document.getElementById("loading").style.display="block";
@@ -109,7 +122,7 @@
   }
 
 
-  /*************************************************
+/*************************************************
  * MOSTRAR STOCK
  *************************************************/
  
@@ -139,36 +152,78 @@
 
 
 /*************************************************
- * generar Tabla
+ * Generar Tabla
  *************************************************/
 
-  
- function generarTabla(datos) {
-  const container = document.getElementById("stockTable");
-  let html = "<table id='tablaInventario' class='tabla-inventario'><thead><tr>";
-  
-  // Encabezados
-  datos[0].forEach(h => html += "<th>" + h + "</th>");
-  html += "</tr></thead><tbody>";
+function generarTabla(datos){
 
-  for (let i = 1; i < datos.length; i++) {
+  if (!datos || datos.length === 0) {
+    document.getElementById("stockTable").innerHTML = "No hay datos";
+    return;
+  }
+
+  let html = "<div class='tabla-container'>";
+  html += "<table id='tablaInventario' class='table table-bordered table-alertas'>";
+
+  /***************
+  HEADER
+  ***************/
+  html += "<thead><tr>";
+
+  html += "<th>Alertas</th>";
+
+  datos[0].forEach(columna=>{
+    html += `<th>${columna}</th>`;
+  });
+
+  html += "</tr></thead>";
+
+  /***************
+  BODY
+  ***************/
+  html += "<tbody>";
+
+  for(let i=1;i<datos.length;i++){
+
+    const fila = datos[i];
+
+    const alertaTexto = String(fila[15] || "").toLowerCase();
+
+    let iconos = "";
+
+    if(alertaTexto.includes("Faltan unidades")){
+      iconos += "📦 ";
+    }
+
+    if(alertaTexto.includes("Falta documentos")){
+      iconos += "📄 ";
+    }
+
+    if(alertaTexto.includes("Muchos dias")){
+      iconos += "📅 ";
+    }
+
+    // si no tiene alertas
+    if(iconos === ""){
+      iconos = "✅";
+    }
+
     html += "<tr>";
-    datos[i].forEach((celda, index) => {
-      let valor = celda || "-";
-      
-      // Formatear la columna de porcentaje para que no tenga mil decimales
-      if (index === 4 && !isNaN(celda) && celda !== "") {
-        let p = (parseFloat(celda) * 100).toFixed(0);
-        valor = p + "%";
-      }
-      
-      html += "<td title='" + valor + "'>" + valor + "</td>";
+
+    html += `<td class="alerta-icons">${iconos}</td>`;
+
+    fila.forEach(celda=>{
+      if(celda === null || celda === undefined) celda="";
+      html += `<td>${celda}</td>`;
     });
+
     html += "</tr>";
   }
-  
-  html += "</tbody></table>";
-  container.innerHTML = html;
+
+  html += "</tbody></table></div>";
+
+  document.getElementById("stockTable").innerHTML = html;
+
 }
 
 /*************************************************
@@ -199,6 +254,9 @@
     link.download = "inventario_completo.csv";
     link.click();
   }
+
+
+
 </script>
 
 </body>

@@ -1,10 +1,99 @@
 /*************************************************
+ * FUNCIONES GLOBLALES
+ *************************************************/
+function actualizarInventarioCompleto(){
+
+  actualizarInventarioGeneral();   // actualiza datos desde API
+
+  generarAlertasInventario();      // genera alertas columna P
+
+  moverRemesasEntregadas();        // mueve remesas entregadas
+
+}
+
+
+/*************************************************
+ * ALERTAS INVENTARIO
+ *************************************************/
+
+function generarAlertasInventario(){
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const hoja = ss.getSheetByName(HOJA_INVENTARIO);
+
+  const datos = hoja.getDataRange().getValues();
+
+  if(datos.length <= 1) return;
+
+  const hoy = new Date();
+  const alertas = [];
+
+  for(let i=1;i<datos.length;i++){
+
+    const escaneadas = Number(datos[i][2]) || 0; // C
+    const total = Number(datos[i][3]) || 0; // D
+    const documento = String(datos[i][6]).toUpperCase().trim(); // G
+    const estadoEntrega = String(datos[i][14]).toUpperCase().trim(); // O
+
+    let fechaTexto = datos[i][12]; // M
+    let fechaCreacion = null;
+
+    /***************************
+    CONVERTIR TEXTO A FECHA
+    ***************************/
+    if(typeof fechaTexto === "string" && fechaTexto !== ""){
+
+      fechaTexto = fechaTexto.split(".")[0]; // quitar milisegundos
+      fechaTexto = fechaTexto.replace(" ", "T"); // formato ISO
+
+      fechaCreacion = new Date(fechaTexto);
+
+    }
+
+    let alerta = [];
+
+    /**************
+    FALTAN UNIDADES
+    **************/
+    if(escaneadas < total){
+      alerta.push("Faltan unidades");
+    }
+
+    /**************
+    FALTA DOCUMENTOS
+    **************/
+    if(documento === "NO"){
+      alerta.push("Falta documentos");
+    }
+
+    /**************
+    MUCHOS DIAS
+    **************/
+    if(fechaCreacion && estadoEntrega !== "ENTREGADO OK"){
+
+      const diffDias = (hoy - fechaCreacion) / (1000*60*60*24);
+
+      if(diffDias > 8){
+        alerta.push("Muchos dias");
+      }
+
+    }
+
+    alertas.push([alerta.join(" | ")]);
+  }
+
+  hoja.getRange(2,16,alertas.length,1).setValues(alertas);
+
+}
+
+
+/*************************************************
  * OBTENER TODO EL INVENTARIO (15 COLUMNAS)
  *************************************************/
 function obtenerInventarioCompleto() {
   const ss = SpreadsheetApp.getActive();
   const hoja = ss.getSheetByName("inventario");
-  const valores = hoja.getRange(1, 1, hoja.getLastRow(), 15).getDisplayValues(); // <--- getDisplayValues es MUCHO más rápido para leer que getValues
+  const valores = hoja.getRange(1, 1, hoja.getLastRow(), 15).getDisplayValues(); 
   return valores;
 }
 
@@ -91,6 +180,99 @@ function obtenerMapaDocumentos() {
   const hojaDoc = ss.getSheetByName(HOJA_DOCUMENTOS);
   if (!hojaDoc || hojaDoc.getLastRow() < 2) return new Set();
   return new Set(hojaDoc.getRange(2, 1, hojaDoc.getLastRow() - 1, 1).getValues().flat().map(x => String(x).trim()));
+}
+
+
+
+/*************************************************
+   * Remesas a Entregadas
+*************************************************/
+
+  function moverRemesasEntregadas(){
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  const hojaInventario = ss.getSheetByName(HOJA_INVENTARIO);
+  let hojaEntregado = ss.getSheetByName(HOJA_ENTREGADO);
+
+  if (!hojaInventario) {
+    throw new Error("No existe la hoja: " + HOJA_INVENTARIO);
+  }
+
+  if (!hojaEntregado) {
+    hojaEntregado = ss.insertSheet(HOJA_ENTREGADO);
+  }
+
+  const datos = hojaInventario.getDataRange().getValues();
+
+  if (datos.length <= 1) return;
+
+  const encabezado = datos[0];
+  const filas = datos.slice(1);
+
+  const mover = [];
+  const mantener = [];
+
+  filas.forEach(fila => {
+
+    const colG = String(fila[6]).trim().toUpperCase();   // Documento
+    const colK = String(fila[10]).trim().toUpperCase();  // Estado
+    const colO = String(fila[14]).trim().toUpperCase();  // Evento
+
+    if (
+      colG === "SI" &&
+      colK === "CUMPLIDA" &&
+      colO === "ENTREGADO OK"
+    ){
+      mover.push(fila);
+    } else {
+      mantener.push(fila);
+    }
+
+  });
+
+  if (mover.length === 0){
+    Logger.log("No hay remesas para mover.");
+    return;
+  }
+
+  /*************************************************
+   * ESCRIBIR EN ENTREGADO
+   *************************************************/
+
+  if (hojaEntregado.getLastRow() === 0){
+    hojaEntregado.appendRow(encabezado);
+  }
+
+  hojaEntregado
+    .getRange(
+      hojaEntregado.getLastRow() + 1,
+      1,
+      mover.length,
+      mover[0].length
+    )
+    .setValues(mover);
+
+  /*************************************************
+   * RECONSTRUIR INVENTARIO
+   *************************************************/
+
+  hojaInventario.clearContents();
+
+  hojaInventario
+    .getRange(1,1,1,encabezado.length)
+    .setValues([encabezado]);
+
+  if (mantener.length > 0){
+
+    hojaInventario
+      .getRange(2,1,mantener.length,mantener[0].length)
+      .setValues(mantener);
+
+  }
+
+  Logger.log(mover.length + " remesas movidas a ENTREGADO");
+
 }
 
 

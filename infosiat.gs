@@ -21,7 +21,7 @@ function seguimientoLogistica() {
 *************************************************/
 
 function obtenerResumenRemesa() {
-  const nro = "222603244307";
+  const nro = "220202318441";
   const respuesta = GETALDIA.consultar(nro);
   
   // Verificamos que la respuesta tenga datos
@@ -56,15 +56,13 @@ function obtenerResumenRemesa() {
 
 
 
-
 /*************************************************
- * completarDatosAPI
+ * completar Datos API
 *************************************************/
 
 function completarDatosAPI(){
 
-  const hoja = SpreadsheetApp
-    .getActive()
+  const hoja = SpreadsheetApp.getActive()
     .getSheetByName("inventario");
 
   const datos = hoja
