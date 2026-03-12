@@ -3,11 +3,13 @@
  *************************************************/
 function actualizarInventarioCompleto(){
 
-  actualizarInventarioGeneral();   // actualiza datos desde API
+  limpiarErroresAPIInterno();
+
+  actualizarInventarioGeneral();   
 
   generarAlertasInventario();      // genera alertas columna P
 
-  //moverRemesasEntregadas();        // mueve remesas entregadas
+  moverRemesasEntregadas();        // mueve remesas entregadas
 
 }
 
@@ -101,18 +103,46 @@ function obtenerInventarioCompleto() {
 }
 
 /*************************************************
- * OBTENER SOLO ALERTAS
+ * OBTENER Y COPIAR ALERTAS (Muchos dias)
  *************************************************/
 function obtenerAlertasInventario() {
-  const datos = obtenerInventarioCompleto();
+  const ss = SpreadsheetApp.getActive();
+  const hojaInventario = ss.getSheetByName(HOJA_INVENTARIO);
+  let hojaAlertas = ss.getSheetByName(HOJA_ALERTAS);
+
+  // 1. Validaciones iniciales
+  if (!hojaInventario) return [];
+  if (!hojaAlertas) {
+    hojaAlertas = ss.insertSheet(HOJA_ALERTAS);
+  }
+
+  const datos = hojaInventario.getDataRange().getValues();
   if (datos.length <= 1) return [];
 
   const encabezados = datos[0];
-  // Filtramos: si hay faltantes (Columna D, índice 3) mayor a 0
+  
+  // 2. Filtrar solo las filas que tengan "Muchos dias" en la columna P (índice 15)
   const filasAlertas = datos.slice(1).filter(fila => {
-    return Number(fila[3]) > 0;
+    const alerta = String(fila[15] || "").toUpperCase().trim();
+    return alerta.includes("MUCHOS DIAS"); 
   });
 
+  // 3. COPIAR A LA HOJA "Alertas"
+  // Limpiamos la hoja de alertas antes de copiar las nuevas
+  hojaAlertas.clearContents();
+  
+  if (filasAlertas.length > 0) {
+    // Ponemos los encabezados
+    hojaAlertas.getRange(1, 1, 1, encabezados.length).setValues([encabezados]);
+    // Pegamos las filas encontradas
+    hojaAlertas.getRange(2, 1, filasAlertas.length, encabezados.length).setValues(filasAlertas);
+    
+    Logger.log("Se copiaron " + filasAlertas.length + " alertas a la hoja Alertas.");
+  }
+
+  // 4. Retornar los datos al HTML para que se vean en la tabla web
+  if (filasAlertas.length === 0) return [];
+  
   return [encabezados, ...filasAlertas];
 }
 
@@ -191,91 +221,106 @@ function obtenerMapaDocumentos() {
   Remesas a Entregadas
 *************************************************/
 
-  function moverRemesasEntregadas(){
-
+ function moverRemesasEntregadas(){
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-
   const hojaInventario = ss.getSheetByName(HOJA_INVENTARIO);
   let hojaEntregado = ss.getSheetByName(HOJA_ENTREGADO);
 
-  if (!hojaInventario) {
-    throw new Error("No existe la hoja: " + HOJA_INVENTARIO);
-  }
-
-  if (!hojaEntregado) {
-    hojaEntregado = ss.insertSheet(HOJA_ENTREGADO);
-  }
+  if (!hojaInventario) throw new Error("No existe la hoja: " + HOJA_INVENTARIO);
+  if (!hojaEntregado) hojaEntregado = ss.insertSheet(HOJA_ENTREGADO);
 
   const datos = hojaInventario.getDataRange().getValues();
-
   if (datos.length <= 1) return;
 
   const encabezado = datos[0];
   const filas = datos.slice(1);
 
+  // --- 1. CARGAR REMESAS YA EXISTENTES EN ENTREGADOS (EVITAR DUPLICADOS) ---
+  let yaEntregadas = new Set();
+  if (hojaEntregado.getLastRow() > 0) {
+    // Leemos la columna A de la hoja de entregados
+    const idsEntregados = hojaEntregado.getRange(1, 1, hojaEntregado.getLastRow(), 1).getValues().flat();
+    yaEntregadas = new Set(idsEntregados.map(id => String(id).trim()));
+  }
+
   const mover = [];
   const mantener = [];
 
   filas.forEach(fila => {
-
+    const remesa = String(fila[0]).trim();
+    const colE = String(fila[4]).trim();                 // % 1
     const colG = String(fila[6]).trim().toUpperCase();   // Documento
     const colK = String(fila[10]).trim().toUpperCase();  // Estado
     const colO = String(fila[14]).trim().toUpperCase();  // Evento
 
+    // Condición: 100% escaneado, Documento SI, Estado CUMPLIDA y Evento ENTREGADO OK
+    // Nota: colE puede llegar como "1", "1.0" o "100%", por eso usamos includes o Number
     if (
+      (colE === "1" || colE === "100%") && 
       colG === "SI" &&
       colK === "CUMPLIDA" &&
       colO === "ENTREGADO OK"
     ){
-      mover.push(fila);
+      // SOLO mover si NO existe ya en la hoja de entregados
+      if (!yaEntregadas.has(remesa)) {
+        mover.push(fila);
+      }
+      // Si ya existía, simplemente no la añadimos a 'mantener', así se borra del inventario
     } else {
       mantener.push(fila);
     }
-
   });
 
-  if (mover.length === 0){
-    Logger.log("No hay remesas para mover.");
-    return;
-  }
-
-  /*************************************************
-   * ESCRIBIR EN ENTREGADO
-   *************************************************/
-
-  if (hojaEntregado.getLastRow() === 0){
-    hojaEntregado.appendRow(encabezado);
-  }
-
-  hojaEntregado
-    .getRange(
+  // --- 2. ESCRIBIR EN ENTREGADO (Si hay nuevos) ---
+  if (mover.length > 0) {
+    if (hojaEntregado.getLastRow() === 0) {
+      hojaEntregado.appendRow(encabezado);
+    }
+    hojaEntregado.getRange(
       hojaEntregado.getLastRow() + 1,
       1,
       mover.length,
       mover[0].length
-    )
-    .setValues(mover);
-
-  /*************************************************
-   * RECONSTRUIR INVENTARIO
-   *************************************************/
-
-  hojaInventario.clearContents();
-
-  hojaInventario
-    .getRange(1,1,1,encabezado.length)
-    .setValues([encabezado]);
-
-  if (mantener.length > 0){
-
-    hojaInventario
-      .getRange(2,1,mantener.length,mantener[0].length)
-      .setValues(mantener);
-
+    ).setValues(mover);
+    Logger.log(mover.length + " remesas nuevas movidas a ENTREGADO.");
   }
 
-  Logger.log(mover.length + " remesas movidas a ENTREGADO");
-
+  // --- 3. RECONSTRUIR HOJA DE INVENTARIO (LIMPIEZA) ---
+  hojaInventario.clearContents();
+  hojaInventario.getRange(1, 1, 1, encabezado.length).setValues([encabezado]);
+  
+  if (mantener.length > 0) {
+    hojaInventario.getRange(2, 1, mantener.length, mantener[0].length).setValues(mantener);
+  }
+  
+  Logger.log("Inventario actualizado. Se mantienen " + mantener.length + " filas.");
 }
 
 
+/*************************************************
+   * limpiar Errores API
+*************************************************/
+
+function limpiarErroresAPIInterno() {
+  const ss = SpreadsheetApp.getActive();
+  const hoja = ss.getSheetByName(HOJA_INVENTARIO);
+  if (!hoja) return;
+  
+  const ultimaFila = hoja.getLastRow();
+  if (ultimaFila < 2) return;
+
+  // Rango de la columna I (Cliente)
+  const rango = hoja.getRange(2, 9, ultimaFila - 1, 1);
+  const valores = rango.getValues();
+  
+  const nuevosValores = valores.map(fila => {
+    const txt = String(fila[0]).toUpperCase();
+    // Si contiene N/A o No en API, lo dejamos vacío para que el script lo vuelva a intentar
+    if (txt.includes("N/A") || txt.includes("NO ENCONTRADA") || txt.includes("ERROR")) {
+      return [""]; 
+    }
+    return [fila[0]];
+  });
+
+  rango.setValues(nuevosValores);
+}

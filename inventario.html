@@ -19,37 +19,43 @@
   }
 
   .tabla-inventario {
-    border-collapse: collapse;
-    width: 1%; 
-    min-width: 100%; 
-    font-family: 'Segoe UI', sans-serif;
+    table-layout: fixed; /* Fuerza a respetar los anchos que daremos */
+    width: 100%;
   }
 
-  .tabla-inventario th, 
-  .tabla-inventario td {
-    padding: 2px 4px; /* Espacio interno controlado */
-    font-size: 9px;
-    border: 1px solid #eee;
-    /* Evita que el texto salte de línea, manteniendo la columna estrecha */
-    white-space: nowrap; 
-    text-align: left;
-  }
-
-  .tabla-inventario th {
-    background-color: #2c3e50;
-    color: white;
-    position: sticky;
-    top: 0;
-    z-index: 2;
-  }
-
-   .tabla-inventario td:nth-child(9),.tabla-inventario td:nth-child(11), 
-  .tabla-inventario th:nth-child(9), .tabla-inventario th:nth-child(11) {
-    max-width: 150px; /* Limita el ancho a 150px (puedes ajustarlo) */
-    min-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .tabla-inventario th, .tabla-inventario td {
+    padding: 4px;
+    font-size: 10px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis; /* Pone los "..." si el texto es largo */
+    border: 1px solid #eee;
+  }
+
+  /* --- DEFINICIÓN DE ANCHOS POR COLUMNA --- */
+  .tabla-inventario th:nth-child(1), .tabla-inventario td:nth-child(1) { width: 50px; }  /* Estado (Iconos) */
+  .tabla-inventario th:nth-child(2), .tabla-inventario td:nth-child(2) { width: 100px; } /* Remesa */
+  .tabla-inventario th:nth-child(3), .tabla-inventario td:nth-child(3) { width: 40px; }  /* Total */
+  .tabla-inventario th:nth-child(4), .tabla-inventario td:nth-child(4) { width: 40px; }  /* Escaneadas */
+  .tabla-inventario th:nth-child(5), .tabla-inventario td:nth-child(5) { width: 45px; }  /* Faltantes */
+  .tabla-inventario th:nth-child(6), .tabla-inventario td:nth-child(6) { width: 50px; }  /* % */
+  .tabla-inventario th:nth-child(7), .tabla-inventario td:nth-child(7) { width: 80px; }  /* Ubicación */
+  .tabla-inventario th:nth-child(8), .tabla-inventario td:nth-child(8) { width: 35px; }  /* Doc */
+  .tabla-inventario th:nth-child(9), .tabla-inventario td:nth-child(9) { width: 75px; }  /* FechaLec */
+  
+  /* CLIENTE Y DESTINO (Las más largas) */
+  .tabla-inventario th:nth-child(10), .tabla-inventario td:nth-child(10) { width: 180px; } 
+  .tabla-inventario th:nth-child(11), .tabla-inventario td:nth-child(11) { width: 120px; }
+
+  /* Efecto Hover para leer nombres completos */
+  .tabla-inventario td:nth-child(10):hover, 
+  .tabla-inventario td:nth-child(11):hover {
+    overflow: visible;
+    white-space: normal;
+    background: #fff !important;
+    position: relative;
+    z-index: 10;
+    box-shadow: 0 0 8px rgba(0,0,0,0.2);
   }
 
   .tabla-inventario tr:nth-child(even) { background-color: #f9f9f9; }
@@ -75,6 +81,15 @@
   text-align:center;
   font-size:18px;
 }
+
+
+  /* Asegurar que la columna de iconos no se oculte */
+  .alerta-icons {
+    min-width: 40px;
+    text-align: center;
+    background: #f8f9fa;
+    font-size: 14px;
+  }
      
 </style>
 
@@ -124,35 +139,40 @@
  * BOTONES
  *************************************************/
 
-function actualizarInventario(){
+  function actualizarInventario(){
 
-  document.getElementById("loading").style.display="block";
+    document.getElementById("loading").style.display="block";
 
-  google.script.run
-    .withSuccessHandler(function(){
+    google.script.run
+      .withSuccessHandler(function(){
 
-      document.getElementById("loading").style.display="none";
-      mostrarStock();
+        document.getElementById("loading").style.display="none";
+        mostrarStock();
 
-    })
-    .actualizarInventarioCompleto();
+      })
+      .actualizarInventarioCompleto();
 
-}
+  }
 
   function mostrarAlertas(){
     document.getElementById("loading").style.display="block";
+    
     google.script.run
       .withSuccessHandler(function(datos){
         document.getElementById("loading").style.display="none";
+        
         if(!datos || datos.length <= 1) {
-          document.getElementById("stockTable").innerHTML="<p style='padding:20px;'>No hay alertas (todo completo)</p>";
+          document.getElementById("stockTable").innerHTML = 
+            "<div style='padding:20px; color:#e67e22; font-weight:bold;'>" +
+            "✅ No se encontraron remesas con 'Muchos días'. La hoja de Alertas ha sido limpiada.</div>";
           return;
         }
-        generarTabla(datos);
+        
+        // Genera la tabla visual con los datos que acabamos de copiar a la hoja
+        generarTabla(datos); 
       })
       .obtenerAlertasInventario();
   }
-
 
 /*************************************************
  * MOSTRAR STOCK
@@ -186,53 +206,36 @@ function actualizarInventario(){
  *************************************************/
 
 function generarTabla(datos){
-
   if (!datos || datos.length === 0) {
     document.getElementById("stockTable").innerHTML = "No hay datos";
     return;
   }
 
   const headers = datos[0];
-  const colAlertas = headers.indexOf("Alertas");
-
   let html = `
-  <div class="tabla-container">
-  <table id="tablaInventario" class="table table-sm table-bordered table-hover table-alertas">
+  <table id="tablaInventario" class="tabla-inventario">
   <thead>
-  <tr>
-  <th>Alertas</th>`;
+    <tr>
+      <th>Estado</th>`; // Columna de iconos personalizada
 
-  headers.forEach(col=>{
+  headers.forEach(col => {
     html += `<th>${col}</th>`;
   });
 
   html += "</tr></thead><tbody>";
 
-  for(let i=1;i<datos.length;i++){
-
+  for(let i=1; i<datos.length; i++){
     const fila = datos[i];
-    const remesa = fila[0];
-
-    // leer columna P
+    
+    // La columna P es el índice 15 (Remesa es 0)
     const alertaTexto = String(fila[15] || "").toLowerCase().trim();
 
     let iconos = "";
     let claseFila = "";
 
-    if(alertaTexto.includes("faltan unidades")){
-      iconos += "📦 ";
-      claseFila = "fila-faltantes";
-    }
-
-    if(alertaTexto.includes("falta documentos")){
-      iconos += "📄 ";
-      if(!claseFila) claseFila = "fila-documentos";
-    }
-
-    if(alertaTexto.includes("muchos dias")){
-      iconos += "📅 ";
-      claseFila = "fila-dias";
-    }
+    if(alertaTexto.includes("faltan unidades")) { iconos += "📦 "; claseFila = "fila-faltantes"; }
+    if(alertaTexto.includes("falta documentos")) { iconos += "📄 "; claseFila = "fila-documentos"; }
+    if(alertaTexto.includes("muchos dias")) { iconos += "📅 "; claseFila = "fila-dias"; }
 
     if(iconos === ""){
       iconos = "✅";
@@ -240,21 +243,20 @@ function generarTabla(datos){
     }
 
     html += `<tr class="${claseFila}">`;
-
     html += `<td class="alerta-icons">${iconos}</td>`;
 
-    fila.forEach(celda=>{
-      if(celda === null || celda === undefined) celda="";
-      html += `<td>${celda}</td>`;
+    fila.forEach((celda, index) => {
+      let valor = celda === null || celda === undefined ? "" : celda;
+      // Añadir atributo title para ver texto completo en columnas truncadas (Cliente/Estado)
+      let tooltip = (index === 8 || index === 10) ? `title="${valor}"` : "";
+      html += `<td ${tooltip}>${valor}</td>`;
     });
 
     html += "</tr>";
   }
 
-  html += "</tbody></table></div>";
-
+  html += "</tbody></table>";
   document.getElementById("stockTable").innerHTML = html;
-
 }
 
 /*************************************************
@@ -273,16 +275,28 @@ function generarTabla(datos){
   function exportarStock(){
     const tabla = document.getElementById("tablaInventario");
     if(!tabla) return;
+    
     let csv = [];
-    tabla.querySelectorAll("tr").forEach(row => {
-      let fila = [];
-      row.querySelectorAll("th, td").forEach(col => fila.push('"' + col.innerText + '"'));
-      csv.push(fila.join(","));
+    const filas = tabla.querySelectorAll("tr");
+    
+    filas.forEach(row => {
+      let datosFila = [];
+      const celdas = row.querySelectorAll("th, td");
+      
+      // Empezamos desde el índice 1 para ignorar la columna de iconos (columna 0)
+      for (let i = 1; i < celdas.length; i++) {
+        // Limpiamos el texto de comillas dobles para no romper el CSV y lo encerramos en comillas
+        let texto = celdas[i].innerText.replace(/"/g, '""');
+        datosFila.push('"' + texto + '"');
+      }
+      csv.push(datosFila.join(","));
     });
+
+    const nombreArchivo = "inventario_puro_" + new Date().toLocaleDateString() + ".csv";
     const blob = new Blob([csv.join("\n")], {type: "text/csv;charset=utf-8;"});
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = "inventario_completo.csv";
+    link.download = nombreArchivo;
     link.click();
   }
 

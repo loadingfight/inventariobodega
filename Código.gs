@@ -6,6 +6,7 @@ const HOJA_INVENTARIO = "Inventario";
 const HOJA_DOCUMENTOS = "documentos";
 const HOJA_ENTREGADO = "ENTREGADO";
 const HOJA_REPORTES = "Reportes";
+const HOJA_ALERTAS = "Alertas";
 
 
 /*************************************************
