@@ -88,7 +88,20 @@
       <button class="btn btn-primary" onclick="actualizarInventario()">Actualizar Inventario</button>
       <button class="btn btn-warning" onclick="mostrarAlertas()">Solo Alertas</button>
       <button class="btn btn-success" onclick="exportarStock()">Exportar CSV</button>
+      <button class="btn btn-primary" onclick="iniciarCargaMasiva()" id="btnCarga">
+      🚀 Iniciar Carga Masiva (API)
+      </button>
+
+      <div id="progresoContenedor" style="display:none; margin-top:10px;">
+        <div style="width:100%; background:#eee; border-radius:10px; height:20px;">
+          <div id="barraProgreso" style="width:0%; background:#27ae60; height:100%; border-radius:10px; transition:0.3s;"></div>
+        </div>
+        <small id="textoProgreso">Procesando: 0%</small>
+      </div>
+      
     </div>
+
+    
     <input type="text" id="buscar" placeholder="Buscar por remesa, cliente o ubicación..." onkeyup="filtrarTabla()" class="input-busqueda">
     <p>  ✅ correcto 📦 → faltan unidades 📄 → falta documentos 📅 → muchos días </p> 
   </div>
@@ -153,9 +166,7 @@ function actualizarInventario(){
     .withSuccessHandler(function(datos){
       document.getElementById("loading").style.display="none";
       
-      // LOG DE DEPURACIÓN: Abre la consola del navegador con F12 para ver esto
-      console.log("Datos recibidos del servidor:", datos);
-
+     
       if(!datos || datos.length === 0){
         document.getElementById("stockTable").innerHTML="<p>No hay datos disponibles</p>";
         return;
@@ -166,7 +177,7 @@ function actualizarInventario(){
       document.getElementById("loading").style.display="none";
       document.getElementById("stockTable").innerHTML="<p>Error: " + err.message + "</p>";
     })
-    .obtenerInventarioCompleto(); // <--- ASEGÚRATE QUE ESTE NOMBRE SEA IGUAL AL DEL .GS
+    .obtenerInventarioCompleto(); 
 }
 
 
@@ -275,6 +286,50 @@ function generarTabla(datos){
     link.click();
   }
 
+/*************************************************
+ * iniciar Carga Masiva
+*************************************************/
+
+let totalPendientes = 0;
+let procesados = 0;
+
+function iniciarCargaMasiva() {
+    const btn = document.getElementById("btnCarga");
+    btn.disabled = true;
+    document.getElementById("progresoContenedor").style.display = "block";
+    procesados = 0;
+    ejecutarLote();
+}
+
+function ejecutarLote() {
+    google.script.run
+    .withSuccessHandler(function(resultado) {
+        // resultado devuelve: { procesados: X, pendientes: Y }
+        if (resultado.pendientes > 0 && resultado.procesados > 0) {
+            // Actualizar barra de progreso
+            procesados += resultado.procesados;
+            let totalEstimado = procesados + resultado.pendientes;
+            let porcentaje = Math.round((procesados / totalEstimado) * 100);
+            
+            document.getElementById("barraProgreso").style.width = porcentaje + "%";
+            document.getElementById("textoProgreso").innerText = "Procesado: " + porcentaje + "% (" + resultado.pendientes + " restantes)";
+            
+            // Llamar al siguiente lote inmediatamente
+            ejecutarLote();
+        } else {
+            // Fin del proceso
+            document.getElementById("barraProgreso").style.width = "100%";
+            document.getElementById("textoProgreso").innerText = "✅ ¡Carga Completa!";
+            document.getElementById("btnCarga").disabled = false;
+            mostrarStock(); // Refrescar la tabla
+        }
+    })
+    .withFailureHandler(function(err) {
+        alert("Error en el lote: " + err.message);
+        document.getElementById("btnCarga").disabled = false;
+    })
+    .procesarLoteAPI(20); // Procesamos de 20 en 20 para evitar lags
+}
 
 
 </script>

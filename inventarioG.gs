@@ -7,7 +7,7 @@ function actualizarInventarioCompleto(){
 
   generarAlertasInventario();      // genera alertas columna P
 
-  moverRemesasEntregadas();        // mueve remesas entregadas
+  //moverRemesasEntregadas();        // mueve remesas entregadas
 
 }
 

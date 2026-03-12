@@ -1,6 +1,6 @@
 /*************************************************
  * CONFIGURACIÓN
- *************************************************/
+*************************************************/
 const HOJA_ESCANER = "escaner";
 const HOJA_INVENTARIO = "Inventario";
 const HOJA_DOCUMENTOS = "documentos";

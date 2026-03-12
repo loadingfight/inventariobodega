@@ -123,4 +123,55 @@ function completarDatosAPI(){
   });
 
 }
- 
+
+
+/*************************************************
+ * Procesar Lote API
+*************************************************/
+
+
+function procesarLoteAPI(tamanoLote) {
+  const hoja = SpreadsheetApp.getActive().getSheetByName("inventario");
+  const datos = hoja.getDataRange().getValues();
+  let contador = 0;
+  let pendientesPostLote = 0;
+
+  for (let i = 1; i < datos.length; i++) {
+    const remesa = String(datos[i][0]).trim();
+    const cliente = datos[i][8]; // Columna I
+
+    // Si ya tiene datos, no contar como pendiente ni procesar
+    if (cliente !== "" || !remesa) continue;
+
+    // Si todavía estamos dentro del tamaño del lote, procesamos
+    if (contador < tamanoLote) {
+      try {
+        const respuesta = GETALDIA.consultar(remesa);
+        if (respuesta && respuesta.rows > 0) {
+          const info = respuesta.data[0];
+          let uEv = (info.historico_eventos && info.historico_eventos.length > 0) 
+                    ? info.historico_eventos.slice(-1)[0].nombre : "SIN EVENTOS";
+
+          hoja.getRange(i + 1, 9, 1, 7).setValues([[
+            info.cliente, info.destino, info.estado_remesa, 
+            info.entregada, info.fecha_hora, info.anulada, uEv
+          ]]);
+        } else {
+          hoja.getRange(i + 1, 9).setValue("N/A"); // Evitar re-procesar fallidas
+        }
+        contador++;
+        Utilities.sleep(1000); // Pequeño respiro para la API
+      } catch (e) {
+        Logger.log("Error remesa " + remesa);
+      }
+    } else {
+      // Si ya llenamos el lote, solo contamos cuántas quedan pendientes en total
+      pendientesPostLote++;
+    }
+  }
+
+  return {
+    procesados: contador,
+    pendientes: pendientesPostLote
+  };
+}
